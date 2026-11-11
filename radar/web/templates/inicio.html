@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<h1>Início</h1>
+
+<section class="resumo" aria-label="Resumo">
+  <a class="cartao-numero" href="/vagas?estado=nova">
+    <span class="numero">{{ novas }}</span>
+    <span class="rotulo">vagas novas para ver</span>
+  </a>
+  <a class="cartao-numero" href="/candidaturas">
+    <span class="numero">{{ em_andamento }}</span>
+    <span class="rotulo">candidaturas em andamento</span>
+  </a>
+  <a class="cartao-numero {% if prazos %}cartao-alerta{% endif %}" href="#prazos">
+    <span class="numero">{{ prazos|length }}</span>
+    <span class="rotulo">prazos nos próximos 7 dias</span>
+  </a>
+</section>
+
+<div class="duas-colunas">
+  <section id="prazos">
+    <h2>Prazos próximos</h2>
+    {% if prazos %}
+      <ul class="lista-simples">
+        {% for c in prazos %}
+          <li>
+            <a href="/candidaturas/{{ c.id }}">{{ c.titulo }}</a>
+            <span class="secundario">{{ c.empresa or '' }}</span>
+            <span class="selo {% if c.prazo < hoje %}selo-critico{% else %}selo-aviso{% endif %}">
+              {% if c.prazo < hoje %}venceu{% else %}até{% endif %} {{ c.prazo|data_br }}
+            </span>
+            {% if c.proxima_acao %}<div class="secundario">{{ c.proxima_acao }}</div>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="vazio">Nenhum prazo nos próximos 7 dias. Prazos são definidos na página de cada candidatura.</p>
+    {% endif %}
+
+    <h2>Sem resposta há mais de {{ dias_sem_resposta }} dias</h2>
+    {% if paradas %}
+      <ul class="lista-simples">
+        {% for c in paradas %}
+          <li>
+            <a href="/candidaturas/{{ c.id }}">{{ c.titulo }}</a>
+            <span class="secundario">{{ c.empresa or '' }} · {{ c.status|nome_status }} {{ c.atualizado_em|tempo_relativo }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="secundario">Vale um follow-up ou mudar para "Sem retorno".</p>
+    {% else %}
+      <p class="vazio">Nenhuma candidatura parada.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2>Coletas recentes</h2>
+    <p class="secundario">Buscando por: {{ buscas|join(', ') if buscas else 'nenhum termo — edite "buscas" no config.yaml' }}</p>
+    {% if coletas %}
+      <table class="tabela">
+        <thead><tr><th scope="col">Fonte</th><th scope="col">Quando</th><th scope="col">Resultado</th></tr></thead>
+        <tbody>
+        {% for k in coletas %}
+          <tr>
+            <td>{{ k.fonte }}</td>
+            <td>{{ k.inicio|data_br }} {{ k.inicio[11:16] }}</td>
+            <td>
+              {% if k.erro %}<span class="selo selo-critico" title="{{ k.erro }}">erro</span>
+              <div class="erro-coleta">{{ k.erro[:160] }}</div>
+              {% elif not k.fim %}em andamento
+              {% else %}{{ k.novas }} novas de {{ k.total }}{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="vazio">Nenhuma coleta ainda. Clique em <strong>Coletar agora</strong> no topo.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

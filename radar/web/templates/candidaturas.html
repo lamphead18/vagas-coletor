@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Candidaturas · Radar de Vagas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Candidaturas</h1>
+  <a class="botao" href="/candidaturas/nova">Adicionar candidatura</a>
+</div>
+
+<div class="quadro">
+  {% for codigo, nome, cartoes in colunas %}
+  <section class="coluna" aria-labelledby="col-{{ codigo }}">
+    <h2 id="col-{{ codigo }}">{{ nome }} <span class="contagem">{{ cartoes|length }}</span></h2>
+    {% for c in cartoes %}
+      <article class="cartao">
+        <a class="cartao-titulo" href="/candidaturas/{{ c.id }}">{{ c.titulo }}</a>
+        <div class="secundario">{{ c.empresa or '' }}{% if c.plataforma %} · {{ c.plataforma }}{% endif %}</div>
+        {% if c.prazo %}
+          <span class="selo {% if c.prazo < hoje %}selo-critico{% else %}selo-aviso{% endif %}">prazo {{ c.prazo|data_br }}</span>
+        {% endif %}
+        {% if c.proxima_acao %}<div class="cartao-acao">{{ c.proxima_acao }}</div>{% endif %}
+        <form method="post" action="/candidaturas/{{ c.id }}/status" class="mover">
+          <input type="hidden" name="voltar" value="/candidaturas">
+          <label class="sr-only" for="mover-{{ c.id }}">Mover {{ c.titulo }} para</label>
+          <select id="mover-{{ c.id }}" name="status">
+            {% for cod, nom in status %}<option value="{{ cod }}" {% if cod == c.status %}selected{% endif %}>{{ nom }}</option>{% endfor %}
+          </select>
+          <button class="botao botao-secundario botao-pequeno" type="submit">Mover</button>
+        </form>
+      </article>
+    {% else %}
+      <p class="vazio-coluna">Nada aqui</p>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</div>
+
+<section>
+  <h2>Encerradas <span class="contagem">{{ encerradas|length }}</span></h2>
+  {% if encerradas %}
+  <table class="tabela">
+    <thead><tr><th scope="col">Cargo</th><th scope="col">Empresa</th><th scope="col">Desfecho</th><th scope="col">Última atualização</th></tr></thead>
+    <tbody>
+      {% for c in encerradas %}
+      <tr>
+        <td><a href="/candidaturas/{{ c.id }}">{{ c.titulo }}</a></td>
+        <td>{{ c.empresa or '' }}</td>
+        <td><span class="selo {% if c.status == 'contratado' %}selo-bom{% endif %}">{{ c.status|nome_status }}</span></td>
+        <td>{{ c.atualizado_em|data_br }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="vazio">Nenhuma candidatura encerrada ainda.</p>
+  {% endif %}
+</section>
+{% endblock %}

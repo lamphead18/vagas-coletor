@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block titulo %}{{ vaga.titulo }} · Radar de Vagas{% endblock %}
+{% block conteudo %}
+<p><a href="/vagas">← Vagas</a></p>
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ vaga.titulo }}</h1>
+    <div class="vaga-meta">
+      <span>{{ vaga.empresa or 'Empresa não informada' }}</span>
+      {% if vaga.modelo %}<span>{{ vaga.modelo|rotulo_modelo }}</span>{% endif %}
+      {% if vaga.cidade %}<span>{{ vaga.cidade }}{% if vaga.estado_uf %}/{{ vaga.estado_uf }}{% endif %}</span>{% endif %}
+      {% if vaga.regime %}<span>{{ vaga.regime }}</span>{% endif %}
+      {% if vaga.publicada_em %}<span>publicada em {{ vaga.publicada_em|data_br }}</span>{% endif %}
+    </div>
+  </div>
+  {% if vaga.score is not none %}
+    <div class="nota nota-grande {% if vaga.score >= 80 %}nota-alta{% elif vaga.score >= 65 %}nota-media{% endif %}" aria-label="Afinidade {{ vaga.score }} de 100">{{ vaga.score }}</div>
+  {% endif %}
+</div>
+
+{% if not vaga.passou_filtro %}<p class="aviso aviso-alerta">Esta vaga foi filtrada: {{ vaga.motivo_filtro }}.</p>{% endif %}
+
+<div class="barra-acoes">
+  {% if vaga.url %}<a class="botao" href="{{ vaga.url }}" target="_blank" rel="noopener noreferrer">Abrir vaga</a>{% endif %}
+  <form method="post" action="/vagas/{{ vaga.id }}/acao">
+    {% if vaga.candidatura_id %}
+      <a class="botao botao-secundario" href="/candidaturas/{{ vaga.candidatura_id }}">Ver candidatura</a>
+    {% else %}
+      <button class="botao botao-secundario" name="acao" value="candidatei">Me candidatei</button>
+      <button class="botao botao-secundario" name="acao" value="salvar">Salvar no quadro</button>
+    {% endif %}
+    {% if vaga.estado == 'descartada' %}
+      <button class="botao botao-texto" name="acao" value="restaurar">Restaurar</button>
+    {% else %}
+      <button class="botao botao-texto" name="acao" value="descartar">Descartar</button>
+    {% endif %}
+    {% if vaga.empresa_id and not vaga.empresa_bloqueada %}
+      <button class="botao botao-texto" name="acao" value="bloquear">Bloquear {{ vaga.empresa }}</button>
+    {% endif %}
+  </form>
+</div>
+
+<section class="painel" aria-labelledby="titulo-afinidade">
+  <div class="painel-cabecalho">
+    <h2 id="titulo-afinidade">Afinidade</h2>
+    <form method="post" action="/vagas/{{ vaga.id }}/reavaliar">
+      <button class="botao botao-secundario botao-pequeno" type="submit" data-aguarde="Avaliando…"
+        {% if not ia_score or not perfil_ok %}disabled{% endif %}>{% if vaga.score is none %}Calcular afinidade{% else %}Reavaliar{% endif %}</button>
+    </form>
+  </div>
+  {% if vaga.score is none %}
+    <p class="vazio">Ainda sem nota.{% if not perfil_ok %} Falta o arquivo perfil.yaml.{% elif not ia_score %} Configure uma chave de IA no .env.{% endif %}</p>
+  {% else %}
+    <p><strong>{{ analise.resumo }}</strong> <span class="secundario">— {{ vaga.score_provedor|nome_provedor }}{% if analise.senioridade_vaga and analise.senioridade_vaga != 'nao_informada' %} · vaga {{ analise.senioridade_vaga }}{% endif %}</span></p>
+    <div class="duas-colunas">
+      <div>
+        <h3>Você atende</h3>
+        <ul class="lista-check">{% for r in analise.requisitos_atendidos %}<li>{{ r }}</li>{% else %}<li class="secundario">Nada listado</li>{% endfor %}</ul>
+      </div>
+      <div>
+        <h3>Falta</h3>
+        <ul class="lista-falta">{% for r in analise.requisitos_faltando %}<li>{{ r }}</li>{% else %}<li class="secundario">Nada listado</li>{% endfor %}</ul>
+      </div>
+    </div>
+    {% if analise.pontos_de_atencao %}
+      <h3>Pontos de atenção</h3>
+      <ul>{% for r in analise.pontos_de_atencao %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if vaga.score2 is not none %}
+      <p class="{% if divergente %}aviso aviso-alerta{% else %}secundario{% endif %}">
+        Segunda opinião ({{ vaga.score2_provedor|nome_provedor }}): <strong>{{ vaga.score2 }}</strong> — {{ analise2.resumo }}
+        {% if divergente %}<br>As duas notas divergem bastante: leia a descrição antes de decidir.{% endif %}
+      </p>
+    {% endif %}
+  {% endif %}
+
+  <div class="feedback">
+    {% if feedback %}
+      <p class="secundario">Seu feedback: {% if feedback.tipo == 'mais' %}mais vagas assim{% else %}menos vagas assim ({{ feedback.motivo|nome_motivo }}){% endif %}.</p>
+    {% else %}
+      <form method="post" action="/vagas/{{ vaga.id }}/feedback">
+        <input type="hidden" name="tipo" value="mais">
+        <button class="botao botao-secundario botao-pequeno" type="submit">Mais vagas assim</button>
+      </form>
+      <form method="post" action="/vagas/{{ vaga.id }}/feedback" class="linha-form">
+        <input type="hidden" name="tipo" value="menos">
+        <label class="sr-only" for="motivo">Motivo</label>
+        <select id="motivo" name="motivo">
+          {% for codigo, nome in motivos %}<option value="{{ codigo }}">{{ nome }}</option>{% endfor %}
+        </select>
+        <button class="botao botao-secundario botao-pequeno" type="submit">Menos vagas assim</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="painel" id="acoes" aria-labelledby="titulo-acoes">
+  <h2 id="titulo-acoes">Preparar candidatura</h2>
+  {% if not perfil_ok %}
+    <p class="aviso aviso-alerta">Coloque o arquivo perfil.yaml na pasta do projeto.</p>
+  {% elif not ia_escrita %}
+    <p class="aviso aviso-alerta">Nenhum provedor de IA disponível para escrita. Confira o .env e a tela <a href="/ajustes">Ajustes</a>.</p>
+  {% endif %}
+  <p class="secundario">Cada ação leva de 10 a 60 segundos. Tudo é gerado só a partir do seu perfil.yaml.</p>
+  <div class="grade-acoes">
+    <form method="post" action="/vagas/{{ vaga.id }}/gerar">
+      <input type="hidden" name="tipo" value="cv">
+      <button class="botao" type="submit" data-aguarde="Gerando CV…" {% if not ia_escrita or not perfil_ok %}disabled{% endif %}>Adaptar CV</button>
+      <p class="secundario">DOCX e PDF, uma coluna, com os termos da vaga</p>
+    </form>
+    <form method="post" action="/vagas/{{ vaga.id }}/gerar">
+      <input type="hidden" name="tipo" value="gupy">
+      <button class="botao botao-secundario" type="submit" data-aguarde="Gerando…" {% if not ia_escrita or not perfil_ok %}disabled{% endif %}>Texto para perfil Gupy</button>
+      <p class="secundario">Para colar em Experiência e Habilidades</p>
+    </form>
+    <form method="post" action="/vagas/{{ vaga.id }}/gerar">
+      <input type="hidden" name="tipo" value="entrevista">
+      <button class="botao botao-secundario" type="submit" data-aguarde="Gerando…" {% if not ia_escrita or not perfil_ok %}disabled{% endif %}>Preparar entrevista</button>
+      <p class="secundario">Perguntas prováveis e como responder</p>
+    </form>
+  </div>
+  <div class="duas-colunas">
+    <form method="post" action="/vagas/{{ vaga.id }}/gerar" class="form-empilhado">
+      <input type="hidden" name="tipo" value="resposta">
+      <div class="campo">
+        <label for="pergunta">Pergunta do formulário</label>
+        <textarea id="pergunta" name="entrada" rows="3" placeholder="ex.: Conte sobre um projeto em que você trabalhou com Node.js"></textarea>
+      </div>
+      <button class="botao botao-secundario" type="submit" data-aguarde="Gerando…" {% if not ia_escrita or not perfil_ok %}disabled{% endif %}>Gerar resposta</button>
+    </form>
+    <form method="post" action="/vagas/{{ vaga.id }}/gerar" class="form-empilhado">
+      <input type="hidden" name="tipo" value="mensagem">
+      <div class="campo">
+        <label for="contexto">Para quem é a mensagem (opcional)</label>
+        <textarea id="contexto" name="entrada" rows="3" placeholder="ex.: Ana, tech recruiter, postou a vaga no LinkedIn"></textarea>
+      </div>
+      <button class="botao botao-secundario" type="submit" data-aguarde="Gerando…" {% if not ia_escrita or not perfil_ok %}disabled{% endif %}>Gerar mensagem para recrutador</button>
+    </form>
+  </div>
+</section>
+
+{% if versoes or geracoes %}
+<section id="gerados" aria-labelledby="titulo-gerados">
+  <h2 id="titulo-gerados">Gerados para esta vaga</h2>
+
+  {% for v in versoes %}{% set cv = v.dados|from_json %}
+  <article class="painel">
+    <div class="painel-cabecalho">
+      <h3>CV adaptado <span class="secundario">· {{ v.criado_em|data_br }} {{ v.criado_em[11:16] }} · {{ v.provedor|nome_provedor }}</span></h3>
+      <div class="linha-form">
+        <a class="botao" href="/cv/{{ v.id }}.pdf">Baixar PDF</a>
+        <a class="botao botao-secundario" href="/cv/{{ v.id }}.docx">Baixar DOCX</a>
+      </div>
+    </div>
+    {% if v.cobertura is not none %}
+      <p>Palavras-chave da vaga no CV: <strong>{{ v.cobertura }}%</strong></p>
+    {% endif %}
+    {% if cv.cobertura.faltando_no_cv %}<p class="secundario">Você tem no perfil, mas ficou fora deste CV: {{ cv.cobertura.faltando_no_cv|join(', ') }}.</p>{% endif %}
+    {% if cv.cobertura.faltando_no_perfil %}<p class="secundario">A vaga pede e o seu perfil não tem: {{ cv.cobertura.faltando_no_perfil|join(', ') }}.</p>{% endif %}
+    {% if cv.observacoes %}<p>{{ cv.observacoes }}</p>{% endif %}
+    {% if cv.avisos %}
+      <details><summary>{{ cv.avisos|length }} ajustes feitos pelo validador</summary>
+        <ul>{% for a in cv.avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+    <details>
+      <summary>Ver o conteúdo</summary>
+      <p><strong>{{ cv.titulo }}</strong></p>
+      <p>{{ cv.resumo }}</p>
+      <p class="secundario">{{ cv.skills|join(', ') }}</p>
+      {% for e in cv.experiencias %}
+        <p><strong>{{ e.cargo }} — {{ e.empresa }}</strong> <span class="secundario">{{ e.periodo }}</span></p>
+        <ul>{% for b in e.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+      {% endfor %}
+    </details>
+  </article>
+  {% endfor %}
+
+  {% for g in geracoes %}{% set d = g.conteudo|from_json %}
+  <article class="painel">
+    <h3>{{ acoes_texto[g.tipo][0] if g.tipo in acoes_texto else g.tipo }} <span class="secundario">· {{ g.criado_em|data_br }} {{ g.criado_em[11:16] }} · {{ g.provedor|nome_provedor }}</span></h3>
+    {% if g.tipo == 'resposta' %}
+      <p class="secundario">Pergunta: {{ g.entrada }}</p>
+      <div class="texto-gerado" id="g{{ g.id }}">{{ d.resposta }}</div>
+      <button class="botao botao-secundario botao-pequeno" type="button" data-copiar="g{{ g.id }}">Copiar</button>
+    {% elif g.tipo == 'mensagem' %}
+      {% if d.assunto %}<p class="secundario">Assunto: {{ d.assunto }}</p>{% endif %}
+      <div class="texto-gerado" id="g{{ g.id }}">{{ d.mensagem }}</div>
+      <button class="botao botao-secundario botao-pequeno" type="button" data-copiar="g{{ g.id }}">Copiar</button>
+    {% elif g.tipo == 'gupy' %}
+      {% for e in d.experiencias or [] %}
+        <p><strong>{{ e.cargo }} — {{ e.empresa }}</strong></p>
+        <div class="texto-gerado" id="g{{ g.id }}e{{ loop.index }}">{{ e.descricao }}</div>
+        <button class="botao botao-secundario botao-pequeno" type="button" data-copiar="g{{ g.id }}e{{ loop.index }}">Copiar</button>
+      {% endfor %}
+      {% if d.habilidades %}
+        <p><strong>Habilidades</strong></p>
+        <div class="texto-gerado" id="g{{ g.id }}h">{{ d.habilidades|join(', ') }}</div>
+        <button class="botao botao-secundario botao-pequeno" type="button" data-copiar="g{{ g.id }}h">Copiar</button>
+      {% endif %}
+      {% if d.sobre %}
+        <p><strong>Sobre você</strong></p>
+        <div class="texto-gerado" id="g{{ g.id }}s">{{ d.sobre }}</div>
+        <button class="botao botao-secundario botao-pequeno" type="button" data-copiar="g{{ g.id }}s">Copiar</button>
+      {% endif %}
+    {% elif g.tipo == 'entrevista' %}
+      <details open><summary>Perguntas prováveis</summary>
+        <ol>{% for q in d.perguntas or [] %}<li><strong>{{ q.pergunta }}</strong><br>{{ q.como_responder }}</li>{% endfor %}</ol>
+      </details>
+      {% if d.pontos_fortes %}<p><strong>Destaque:</strong> {{ d.pontos_fortes|join('; ') }}</p>{% endif %}
+      {% if d.pontos_fracos %}
+        <p><strong>Pontos fracos e como lidar:</strong></p>
+        <ul>{% for f in d.pontos_fracos %}<li>{{ f.ponto }} — {{ f.como_lidar }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if d.perguntas_para_fazer %}<p><strong>Para perguntar:</strong> {{ d.perguntas_para_fazer|join(' · ') }}</p>{% endif %}
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+
+<div class="duas-colunas duas-colunas-larga">
+  <section>
+    <h2>Descrição</h2>
+    {% set descricao = vaga.descricao|texto_descricao %}
+    {% if descricao %}
+      <div class="descricao">{{ descricao }}</div>
+    {% else %}
+      <p class="vazio">A fonte não trouxe a descrição. Abra a vaga para ler no site.</p>
+    {% endif %}
+  </section>
+  <aside>
+    <h2>Encontrada em</h2>
+    <ul class="lista-simples">
+      {% for f in fontes %}
+        <li><a href="{{ f.url }}" target="_blank" rel="noopener noreferrer">{{ f.fonte }}</a>
+          <span class="secundario">visto {{ f.visto_em|tempo_relativo }}</span></li>
+      {% endfor %}
+    </ul>
+  </aside>
+</div>
+{% endblock %}

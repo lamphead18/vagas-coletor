@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Adicionar candidatura · Radar de Vagas{% endblock %}
+{% block conteudo %}
+<p><a href="/candidaturas">← Candidaturas</a></p>
+<h1>Adicionar candidatura</h1>
+<p class="secundario">Para candidaturas feitas fora do radar: cole o link e o status atual.</p>
+
+<form method="post" action="/candidaturas/nova" class="form-empilhado form-estreito" novalidate>
+  {% if erro %}<p class="aviso aviso-alerta" role="alert">{{ erro }}</p>{% endif %}
+  <div class="campo">
+    <label for="titulo">Cargo</label>
+    <input id="titulo" name="titulo" required value="{{ form.titulo if form else '' }}" {% if erro %}aria-invalid="true"{% endif %}>
+  </div>
+  <div class="campo">
+    <label for="empresa">Empresa</label>
+    <input id="empresa" name="empresa" value="{{ form.empresa if form else '' }}">
+  </div>
+  <div class="campo">
+    <label for="url">Link da vaga</label>
+    <input id="url" name="url" type="url" value="{{ form.url if form else '' }}" placeholder="https://…">
+  </div>
+  <div class="campo">
+    <label for="status">Status atual</label>
+    <select id="status" name="status">
+      {% for cod, nom in status %}<option value="{{ cod }}" {% if cod == 'candidatada' %}selected{% endif %}>{{ nom }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="botao" type="submit">Adicionar candidatura</button>
+</form>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block titulo %}Vagas · Radar de Vagas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <h1>Vagas</h1>
+  <form method="post" action="/refiltrar">
+    <button class="botao botao-secundario" type="submit" title="Use depois de mudar os filtros no config.yaml">Reaplicar filtros</button>
+  </form>
+</div>
+
+<form class="filtros" method="get" action="/vagas" role="search">
+  <div class="campo">
+    <label for="busca">Buscar</label>
+    <input id="busca" name="busca" type="search" value="{{ busca }}" placeholder="cargo ou empresa">
+  </div>
+  <div class="campo">
+    <label for="estado">Mostrar</label>
+    <select id="estado" name="estado">
+      <option value="" {% if not estado %}selected{% endif %}>Abertas (novas e vistas)</option>
+      <option value="nova" {% if estado == 'nova' %}selected{% endif %}>Só novas</option>
+      <option value="descartada" {% if estado == 'descartada' %}selected{% endif %}>Descartadas</option>
+    </select>
+  </div>
+  <div class="campo">
+    <label for="fonte">Fonte</label>
+    <select id="fonte" name="fonte">
+      <option value="">Todas</option>
+      {% for f in fontes %}<option value="{{ f }}" {% if f == fonte %}selected{% endif %}>{{ f }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="campo">
+    <label for="ordem">Ordenar por</label>
+    <select id="ordem" name="ordem">
+      <option value="score" {% if ordem == 'score' %}selected{% endif %}>Afinidade</option>
+      <option value="data" {% if ordem == 'data' %}selected{% endif %}>Mais recentes</option>
+    </select>
+  </div>
+  <label class="checkbox"><input type="checkbox" name="filtradas" value="1" {% if mostrar_filtradas %}checked{% endif %}> Incluir filtradas</label>
+  <button class="botao" type="submit">Filtrar</button>
+</form>
+
+<p class="secundario">{{ vagas|length }} {{ "vaga" if vagas|length == 1 else "vagas" }}{% if vagas|length == 300 %} (mostrando as 300 mais recentes){% endif %}</p>
+
+{% if vagas %}
+<ul class="lista-vagas">
+  {% for v in vagas %}
+  <li class="vaga {% if v.estado == 'nova' %}vaga-nova{% endif %} {% if not v.passou_filtro %}vaga-filtrada{% endif %}">
+    {% if v.score is not none %}
+      <div class="nota {% if v.score >= 80 %}nota-alta{% elif v.score >= 65 %}nota-media{% endif %}" aria-label="Afinidade {{ v.score }} de 100">{{ v.score }}</div>
+    {% else %}
+      <div class="nota nota-vazia" aria-label="Sem nota de afinidade">–</div>
+    {% endif %}
+    <div class="vaga-info">
+      <a class="vaga-titulo" href="/vagas/{{ v.id }}">{{ v.titulo }}</a>
+      <div class="vaga-meta">
+        <span>{{ v.empresa or 'Empresa não informada' }}</span>
+        {% if v.modelo %}<span>{{ v.modelo|rotulo_modelo }}</span>{% endif %}
+        {% if v.cidade %}<span>{{ v.cidade }}{% if v.estado_uf %}/{{ v.estado_uf }}{% endif %}</span>{% endif %}
+        {% if v.regime %}<span>{{ v.regime }}</span>{% endif %}
+        <span>{{ (v.publicada_em or v.coletada_em)|tempo_relativo }}</span>
+      </div>
+      <div class="vaga-selos">
+        {% if v.estado == 'nova' %}<span class="selo selo-destaque">nova</span>{% endif %}
+        {% for f in (v.fontes or '').split(',') if f %}<span class="selo">{{ f }}</span>{% endfor %}
+        {% if v.candidatura_id %}<a class="selo selo-bom" href="/candidaturas/{{ v.candidatura_id }}">no quadro</a>{% endif %}
+        {% if not v.passou_filtro %}<span class="selo selo-aviso">filtrada: {{ v.motivo_filtro }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="vaga-acoes">
+      {% if v.url %}<a class="botao" href="{{ v.url }}" target="_blank" rel="noopener noreferrer">Abrir vaga</a>{% endif %}
+      <form method="post" action="/vagas/{{ v.id }}/acao">
+        <input type="hidden" name="voltar" value="{{ voltar_para }}">
+        {% if not v.candidatura_id %}
+          <button class="botao botao-secundario" name="acao" value="candidatei">Me candidatei</button>
+          <button class="botao botao-secundario" name="acao" value="salvar">Salvar</button>
+        {% endif %}
+        {% if v.estado == 'descartada' %}
+          <button class="botao botao-texto" name="acao" value="restaurar">Restaurar</button>
+        {% else %}
+          <button class="botao botao-texto" name="acao" value="descartar">Descartar</button>
+        {% endif %}
+      </form>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+  <div class="vazio-grande">
+    <p><strong>Nenhuma vaga por aqui.</strong></p>
+    <p>Se você ainda não coletou, clique em <strong>Coletar agora</strong> no topo. Se já coletou, tente marcar "Incluir filtradas" ou afrouxar os filtros no config.yaml.</p>
+  </div>
+{% endif %}
+{% endblock %}

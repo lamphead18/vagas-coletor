@@ -1,0 +1,107 @@
+# Configuração do Radar de Vagas
+# Copie este arquivo para config.yaml (o iniciar.bat faz isso na primeira vez)
+# e ajuste os termos para a sua área.
+
+servidor:
+  porta: 8765
+
+coleta:
+  # De quantas em quantas horas a coleta roda sozinha enquanto o app está aberto
+  intervalo_horas: 6
+  # Coletar assim que o app abre (se a última coleta for mais antiga que o intervalo)
+  coletar_ao_iniciar: true
+
+# Termos de busca usados em todas as fontes. Um termo por linha.
+buscas:
+  - "analista de dados"
+  - "engenheiro de dados"
+
+fontes:
+  gupy:
+    ativo: true
+    # Cada página traz até 10 vagas. 5 páginas = até 50 vagas por termo.
+    max_paginas: 5
+
+  jobspy:
+    # Precisa do pacote python-jobspy (o iniciar.bat tenta instalar).
+    ativo: true
+    # LinkedIn fica com poucos resultados de propósito: a busca é pública, sem login,
+    # e o LinkedIn bloqueia quem pede muitas páginas.
+    sites: ["indeed", "glassdoor", "linkedin"]
+    local: "Brasil"
+    pais_indeed: "Brazil"
+    resultados_por_site: 25
+    horas: 72
+
+# Filtro de regras: roda antes de tudo, sem IA.
+# Vagas que não passam ficam escondidas (dá para ver em "Mostrar filtradas").
+filtros:
+  # Se a lista tiver itens, o título precisa conter PELO MENOS UM deles.
+  titulo_deve_conter: []
+  # Se o título contiver QUALQUER um destes, a vaga é filtrada.
+  titulo_nao_pode_conter:
+    - "estágio"
+    - "estagiário"
+    - "jovem aprendiz"
+  # Modelos aceitos: remoto, hibrido, presencial. Vazio = aceita todos.
+  modelos: []
+  # Cidades aceitas para vagas presenciais ou híbridas. Vazio = aceita todas.
+  cidades: []
+  # Descarta vagas publicadas há mais de N dias (0 = sem limite).
+  idade_max_dias: 21
+  # Empresas que você nunca quer ver.
+  empresas_bloqueadas: []
+
+candidaturas:
+  # Depois de quantos dias sem atualização uma candidatura aparece como "sem resposta"
+  dias_sem_resposta: 14
+
+# ---------------- Fase 2: afinidade com IA ----------------
+# As chaves de API ficam no arquivo .env (copie o .env.example). Nunca coloque chaves aqui.
+
+afinidade:
+  ativo: true
+  # Vagas com score abaixo disto não aparecem na tela Hoje.
+  score_minimo: 60
+  # Máximo de vagas avaliadas por rodada (controla o gasto).
+  max_por_rodada: 60
+  # Quantas das melhores recebem segunda opinião de outro provedor.
+  segunda_opiniao_top: 10
+  # Diferença de pontos entre as duas notas que gera o selo "revisar".
+  divergencia: 20
+  # Minutos que você costuma ter por dia (dá para mudar na tela Hoje).
+  tempo_disponivel_padrao: 60
+  # Minutos estimados por candidatura em cada plataforma. Depois de 2 candidaturas com
+  # "tempo gasto" preenchido, a média real substitui estes valores.
+  esforco_min:
+    gupy: 20
+    linkedin: 8
+    indeed: 10
+    glassdoor: 10
+    outro: 15
+
+ia:
+  provedores:
+    gemini:
+      modelo_rapido: gemini-3.8-flash
+      modelo_forte: gemini-3.8-flash
+      limite_chamadas_dia: 300
+    openai:
+      modelo_rapido: gpt-6-luna
+      modelo_forte: gpt-6.1-sol
+      limite_chamadas_dia: 40
+    anthropic:
+      modelo_rapido: claude-haiku-5-5
+      modelo_forte: claude-sonnet-5-5
+      limite_chamadas_dia: 40
+  # Para cada tarefa: a ordem de preferência (o próximo assume se um falhar) e o nível do modelo.
+  tarefas:
+    score:
+      provedores: [gemini, openai, anthropic]
+      modelo: rapido
+    segunda_opiniao:
+      provedores: [openai, anthropic, gemini]
+      modelo: forte
+    escrita:
+      provedores: [anthropic, openai, gemini]
+      modelo: forte

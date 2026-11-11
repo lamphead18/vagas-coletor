@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Radar de Vagas{% endblock %}</title>
+  <link rel="stylesheet" href="/static/estilo.css">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+  <header class="topo">
+    <div class="topo-interno">
+      <a class="marca" href="/">Radar de Vagas</a>
+      <nav aria-label="Principal">
+        <a href="/" {% if caminho == '/' %}aria-current="page"{% endif %}>Início</a>
+        <a href="/hoje" {% if caminho.startswith('/hoje') %}aria-current="page"{% endif %}>Hoje</a>
+        <a href="/vagas" {% if caminho.startswith('/vagas') %}aria-current="page"{% endif %}>Vagas</a>
+        <a href="/candidaturas" {% if caminho.startswith('/candidaturas') %}aria-current="page"{% endif %}>Candidaturas</a>
+        <a href="/ajustes" {% if caminho.startswith('/ajustes') %}aria-current="page"{% endif %}>Ajustes</a>
+      </nav>
+      <form method="post" action="/coletar" class="topo-coleta">
+        <input type="hidden" name="voltar" value="{{ caminho }}">
+        {% if execucao.rodando %}
+          <span class="status-coleta" role="status">{{ execucao.mensagem or 'Coletando…' }}</span>
+        {% elif estado_afinidade.rodando %}
+          <span class="status-coleta" role="status">{{ estado_afinidade.mensagem or 'Avaliando afinidade…' }}</span>
+        {% else %}
+          <button type="submit" class="botao botao-secundario">Coletar agora</button>
+        {% endif %}
+      </form>
+    </div>
+  </header>
+  <main id="conteudo" class="pagina">
+    {% if mensagem %}<p class="aviso" role="status">{{ mensagem }}</p>{% endif %}
+    {% block conteudo %}{% endblock %}
+  </main>
+  <script>
+    document.addEventListener("click", async (evento) => {
+      const botao = evento.target.closest("[data-copiar]");
+      if (!botao) return;
+      const alvo = document.getElementById(botao.dataset.copiar);
+      if (!alvo) return;
+      try {
+        await navigator.clipboard.writeText(alvo.innerText.trim());
+        const original = botao.textContent;
+        botao.textContent = "Copiado";
+        setTimeout(() => { botao.textContent = original; }, 1500);
+      } catch (erro) {
+        botao.textContent = "Selecione e copie (Ctrl+C)";
+      }
+    });
+    document.addEventListener("submit", (evento) => {
+      const botao = evento.submitter;
+      if (botao && botao.dataset.aguarde) {
+        setTimeout(() => { botao.disabled = true; botao.textContent = botao.dataset.aguarde; }, 0);
+      }
+    });
+  </script>
+</body>
+</html>

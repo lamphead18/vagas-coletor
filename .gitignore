@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+dados/
+config.yaml
+.pytest_cache/
+.ruff_cache/
+perfil.yaml
+.env
+dados/cvs/

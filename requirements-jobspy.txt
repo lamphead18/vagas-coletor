@@ -1,0 +1,3 @@
+# Opcional: Indeed, Glassdoor e LinkedIn (busca publica, sem login).
+# Se falhar a instalacao, o app funciona so com a Gupy.
+python-jobspy>=1.1.80

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block titulo %}Hoje · Radar de Vagas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Hoje</h1>
+    <p class="secundario">As vagas que cabem no seu tempo, ordenadas por afinidade, frescor e esforço.</p>
+  </div>
+  <form method="post" action="/hoje/tempo" class="linha-form">
+    <label for="minutos">Tempo disponível hoje</label>
+    <input id="minutos" name="minutos" type="number" min="5" max="600" step="5" value="{{ plano.minutos }}" class="campo-curto">
+    <span class="secundario">min</span>
+    <button class="botao botao-secundario" type="submit">Recalcular</button>
+  </form>
+</div>
+
+{% if not perfil_ok %}
+  <p class="aviso aviso-alerta">Coloque o arquivo <strong>perfil.yaml</strong> na pasta do projeto para a afinidade funcionar.</p>
+{% elif not ia_score %}
+  <p class="aviso aviso-alerta">Nenhum provedor de IA disponível para o score. Confira as chaves no arquivo <strong>.env</strong> e a tela <a href="/ajustes">Ajustes</a>.</p>
+{% endif %}
+
+{% if sem_score %}
+<div class="faixa">
+  <span>{{ sem_score }} vagas ainda sem nota de afinidade.</span>
+  <form method="post" action="/afinidade/avaliar">
+    <input type="hidden" name="voltar" value="/hoje">
+    <button class="botao botao-secundario" type="submit" {% if not ia_score or estado_afinidade.rodando %}disabled{% endif %}>Avaliar agora</button>
+  </form>
+</div>
+{% endif %}
+{% if estado_afinidade.mensagem and not estado_afinidade.rodando %}<p class="secundario">{{ estado_afinidade.mensagem }}</p>{% endif %}
+
+<h2>Cabe hoje <span class="contagem">{{ plano.cabe|length }} vagas · ~{{ plano.usado }} de {{ plano.minutos }} min</span></h2>
+{% if plano.cabe %}
+  <ol class="lista-hoje">
+    {% for item in plano.cabe %}{% set v = item.vaga %}
+    <li class="vaga">
+      <div class="nota {% if item.nota >= 80 %}nota-alta{% elif item.nota >= 65 %}nota-media{% endif %}" aria-label="Afinidade {{ item.nota }} de 100">{{ item.nota }}</div>
+      <div class="vaga-info">
+        <a class="vaga-titulo" href="/vagas/{{ v.id }}">{{ v.titulo }}</a>
+        <div class="vaga-meta">
+          <span>{{ v.empresa or 'Empresa não informada' }}</span>
+          {% if v.modelo %}<span>{{ v.modelo|rotulo_modelo }}</span>{% endif %}
+          <span>~{{ item.esforco }} min</span>
+          <span>{{ (v.publicada_em or v.coletada_em)|tempo_relativo }}</span>
+        </div>
+        {% if item.dados.resumo %}<p class="resumo-ia">{{ item.dados.resumo }}</p>{% endif %}
+        <div class="vaga-selos">
+          {% if v.score2 is not none %}<span class="selo" title="Notas dos dois provedores">{{ v.score }} / {{ v.score2 }}</span>{% endif %}
+          {% if item.divergente %}<span class="selo selo-aviso" title="Os dois provedores discordaram bastante">revisar</span>{% endif %}
+          {% for p in item.dados.pontos_de_atencao[:2] %}<span class="selo selo-aviso">{{ p }}</span>{% endfor %}
+        </div>
+      </div>
+      <div class="vaga-acoes vaga-acoes-coluna">
+        {% if v.url %}<a class="botao" href="{{ v.url }}" target="_blank" rel="noopener noreferrer">Abrir vaga</a>{% endif %}
+        <a class="botao botao-secundario" href="/vagas/{{ v.id }}#acoes">Adaptar CV</a>
+        <form method="post" action="/vagas/{{ v.id }}/acao">
+          <input type="hidden" name="voltar" value="/hoje">
+          <button class="botao botao-secundario" name="acao" value="candidatei">Me candidatei</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+{% else %}
+  <div class="vazio-grande">
+    <p><strong>Nada para hoje ainda.</strong></p>
+    <p>As vagas aparecem aqui depois de receberem nota de afinidade igual ou acima de {{ score_minimo }}. Rode uma coleta e a avaliação, ou baixe o score mínimo no config.yaml.</p>
+  </div>
+{% endif %}
+
+{% if plano.depois %}
+<h2>Próximas <span class="contagem">{{ plano.depois|length }}</span></h2>
+<table class="tabela">
+  <thead><tr><th scope="col">Nota</th><th scope="col">Vaga</th><th scope="col">Empresa</th><th scope="col">Esforço</th><th scope="col">Publicada</th></tr></thead>
+  <tbody>
+    {% for item in plano.depois[:30] %}{% set v = item.vaga %}
+    <tr>
+      <td><strong>{{ item.nota }}</strong>{% if item.divergente %} <span class="selo selo-aviso">revisar</span>{% endif %}</td>
+      <td><a href="/vagas/{{ v.id }}">{{ v.titulo }}</a></td>
+      <td>{{ v.empresa or '' }}</td>
+      <td>~{{ item.esforco }} min</td>
+      <td>{{ (v.publicada_em or v.coletada_em)|tempo_relativo }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

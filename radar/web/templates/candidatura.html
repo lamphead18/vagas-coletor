@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}{{ c.titulo }} · Candidaturas{% endblock %}
+{% block conteudo %}
+<p><a href="/candidaturas">← Candidaturas</a></p>
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ c.titulo }}</h1>
+    <div class="vaga-meta">
+      <span>{{ c.empresa or 'Empresa não informada' }}</span>
+      {% if c.plataforma %}<span>{{ c.plataforma }}</span>{% endif %}
+      {% if c.data_candidatura %}<span>candidatura em {{ c.data_candidatura|data_br }}</span>{% endif %}
+    </div>
+  </div>
+  <span class="selo selo-destaque selo-grande">{{ c.status|nome_status }}</span>
+</div>
+
+<div class="barra-acoes">
+  {% if c.url %}<a class="botao" href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Abrir vaga</a>{% endif %}
+  {% if c.vaga_id %}<a class="botao botao-secundario" href="/vagas/{{ c.vaga_id }}">Ver vaga e ações de IA</a>{% endif %}
+  {% if cv %}<a class="botao botao-secundario" href="/cv/{{ cv.id }}.pdf">CV enviado (PDF)</a>{% endif %}
+</div>
+
+<div class="duas-colunas">
+  <section>
+    <h2>Status</h2>
+    <form method="post" action="/candidaturas/{{ c.id }}/status" class="linha-form">
+      <label for="status">Mudar para</label>
+      <select id="status" name="status">
+        {% for cod, nom in status %}<option value="{{ cod }}" {% if cod == c.status %}selected{% endif %}>{{ nom }}</option>{% endfor %}
+      </select>
+      <button class="botao" type="submit">Atualizar status</button>
+    </form>
+
+    <h2>Próximo passo</h2>
+    <form method="post" action="/candidaturas/{{ c.id }}/detalhes" class="form-empilhado">
+      <div class="campo">
+        <label for="proxima_acao">O que fazer</label>
+        <input id="proxima_acao" name="proxima_acao" value="{{ c.proxima_acao or '' }}" placeholder="ex.: entregar case técnico">
+      </div>
+      <div class="campo">
+        <label for="prazo">Prazo</label>
+        <input id="prazo" name="prazo" type="date" value="{{ c.prazo or '' }}">
+      </div>
+      <div class="campo">
+        <label for="tempo_gasto_min">Quanto tempo levou para se candidatar (min)</label>
+        <input id="tempo_gasto_min" name="tempo_gasto_min" type="number" min="1" max="600" value="{{ c.tempo_gasto_min or '' }}" class="campo-curto">
+        <span class="secundario">Ajuda a calcular quanto cabe no seu dia em cada plataforma.</span>
+      </div>
+      <button class="botao botao-secundario" type="submit">Salvar próximo passo</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Linha do tempo</h2>
+    <form method="post" action="/candidaturas/{{ c.id }}/nota" class="form-empilhado">
+      <div class="campo">
+        <label for="nota">Adicionar nota</label>
+        <textarea id="nota" name="nota" rows="3" placeholder="ex.: recrutadora Ana pediu pretensão salarial"></textarea>
+      </div>
+      <button class="botao botao-secundario" type="submit">Adicionar nota</button>
+    </form>
+    <ol class="linha-do-tempo">
+      {% for e in eventos %}
+        <li class="evento evento-{{ e.tipo }}">
+          <span class="secundario">{{ e.data|data_br }} {{ e.data[11:16] }}</span>
+          <div>{{ e.conteudo }}</div>
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+</div>
+{% endblock %}

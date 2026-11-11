@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block titulo %}Ajustes · Radar de Vagas{% endblock %}
+{% block conteudo %}
+<h1>Ajustes</h1>
+
+<section aria-labelledby="t-perfil">
+  <h2 id="t-perfil">Perfil mestre</h2>
+  {% if perfil %}
+    <p>{{ perfil.nome }} · {{ perfil.bullets }} bullets · {{ perfil.skills }} skills · cargos-alvo: {{ perfil.cargos|join(', ') }}</p>
+    <p class="secundario">Para mudar, edite o arquivo perfil.yaml na pasta do projeto. As próximas avaliações já usam a versão nova.</p>
+  {% else %}
+    <p class="aviso aviso-alerta">{{ perfil_erro }}</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="t-ia">
+  <h2 id="t-ia">Provedores de IA</h2>
+  <table class="tabela">
+    <thead><tr><th scope="col">Provedor</th><th scope="col">Chave</th><th scope="col">Modelo rápido</th><th scope="col">Modelo forte</th><th scope="col">Chamadas hoje</th></tr></thead>
+    <tbody>
+      {% for p in provedores %}
+      <tr>
+        <td>{{ p.exibicao }}</td>
+        <td>{% if p.configurado %}<span class="selo selo-bom">configurada</span>{% else %}<span class="selo selo-aviso">falta {{ p.variavel }}</span>{% endif %}</td>
+        <td><code>{{ p.rapido }}</code></td>
+        <td><code>{{ p.forte }}</code></td>
+        <td>{{ p.hoje }}{% if p.limite %} de {{ p.limite }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="secundario">As chaves ficam no arquivo <strong>.env</strong>. Depois de editar, feche e abra o app de novo. Modelos e limites ficam na seção <code>ia</code> do config.yaml.</p>
+
+  <h3>Quem faz cada tarefa</h3>
+  <table class="tabela">
+    <thead><tr><th scope="col">Tarefa</th><th scope="col">Ordem de preferência</th><th scope="col">Modelo</th><th scope="col">Disponíveis agora</th></tr></thead>
+    <tbody>
+      {% for t in tarefas %}
+      <tr>
+        <td>{{ {'score': 'Score de afinidade', 'segunda_opiniao': 'Segunda opinião', 'escrita': 'CV e textos'}.get(t.nome, t.nome) }}</td>
+        <td>{{ t.ordem|join(' → ') }}</td>
+        <td>{{ t.modelo }}</td>
+        <td>{% if t.ativo %}{{ t.ativo|map('nome_provedor')|join(', ') }}{% else %}<span class="selo selo-critico">nenhum</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Uso nos últimos 30 dias</h3>
+  {% if uso %}
+  <table class="tabela">
+    <thead><tr><th scope="col">Provedor</th><th scope="col">Modelo</th><th scope="col">Hoje</th><th scope="col">Chamadas</th><th scope="col">Com erro</th><th scope="col">Tokens entrada</th><th scope="col">Tokens saída</th></tr></thead>
+    <tbody>
+      {% for u in uso %}
+      <tr><td>{{ u.provedor|nome_provedor }}</td><td><code>{{ u.modelo }}</code></td><td>{{ u.hoje }}</td><td>{{ u.chamadas }}</td><td>{{ u.erros }}</td><td>{{ "{:,}".format(u.entrada or 0).replace(",", ".") }}</td><td>{{ "{:,}".format(u.saida or 0).replace(",", ".") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="secundario">Para saber o custo, multiplique os tokens pelo preço do modelo na página de preços de cada provedor.</p>
+  {% else %}
+    <p class="vazio">Nenhuma chamada de IA ainda.</p>
+  {% endif %}
+  {% if erros %}
+    <details><summary>Últimos erros de IA</summary>
+      <ul>{% for e in erros %}<li><span class="secundario">{{ e.data|data_br }} {{ e.data[11:16] }} · {{ e.provedor }}</span> {{ e.erro }}</li>{% endfor %}</ul>
+    </details>
+  {% endif %}
+</section>
+
+<section aria-labelledby="t-sugestoes">
+  <h2 id="t-sugestoes">Sugestões de filtro</h2>
+  <p class="secundario">Palavras que aparecem em 3 ou mais vagas que você marcou como "menos vagas assim" e em nenhuma que você quis.</p>
+  {% if sugestoes %}
+  <ul class="lista-simples">
+    {% for s in sugestoes %}
+    <li>
+      <div>
+        <strong>Título não pode conter "{{ s.termo }}"</strong> <span class="secundario">· em {{ s.vezes }} vagas recusadas, ex.: {{ s.exemplos|join('; ') }}</span>
+      </div>
+      <form method="post" action="/ajustes/regra" class="linha-form">
+        <input type="hidden" name="tipo" value="titulo_nao_pode_conter">
+        <input type="hidden" name="termo" value="{{ s.termo }}">
+        <button class="botao botao-secundario botao-pequeno" type="submit">Adicionar regra</button>
+      </form>
+      <form method="post" action="/ajustes/regra" class="linha-form">
+        <input type="hidden" name="tipo" value="ignorada">
+        <input type="hidden" name="termo" value="{{ s.termo }}">
+        <button class="botao botao-texto botao-pequeno" type="submit">Ignorar</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="vazio">Nenhuma sugestão por enquanto. Elas aparecem conforme você usa "Menos vagas assim".</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="t-regras">
+  <h2 id="t-regras">Regras extras do filtro</h2>
+  <p class="secundario">Somam-se às regras do config.yaml.</p>
+  <form method="post" action="/ajustes/regra" class="linha-form">
+    <label for="tipo-regra">Tipo</label>
+    <select id="tipo-regra" name="tipo">
+      {% for codigo, nome in tipos_regra.items() %}<option value="{{ codigo }}">{{ nome }}</option>{% endfor %}
+    </select>
+    <label for="termo-regra">Termo</label>
+    <input id="termo-regra" name="termo" required>
+    <button class="botao botao-secundario" type="submit">Adicionar regra</button>
+  </form>
+  {% set ativas = regras|rejectattr('tipo', 'equalto', 'ignorada')|list %}
+  {% if ativas %}
+  <ul class="lista-simples">
+    {% for r in ativas %}
+    <li>
+      <span>{{ tipos_regra.get(r.tipo, r.tipo) }}: <strong>{{ r.termo }}</strong></span>
+      <form method="post" action="/ajustes/regra/{{ r.id }}/remover">
+        <button class="botao botao-texto botao-pequeno" type="submit">Remover regra</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endblock %}
